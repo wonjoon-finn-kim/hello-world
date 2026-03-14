@@ -361,118 +361,206 @@
   backBtn.addEventListener("click", showHome);
 
   /* Logo */
-  const logo     = document.getElementById("logo");
-  const topLeft  = document.getElementById("top-left");
-  const cardsArea= document.getElementById("cards-area");
+  const logo      = document.getElementById("logo");
+  const topLeft   = document.getElementById("top-left");
+  const cardsArea = document.getElementById("cards-area");
   const SIZE = 80, R = SIZE / 2;
-  let x = 260 + Math.random()*200, y = 120 + Math.random()*100;
-  const BASE_SPEED = 6.6;
-  let speed = BASE_SPEED;
-  let vx = (Math.random()-0.5)*speed*2;
-  let vy = (Math.random()-0.5)*speed*2;
-  let wanderAngle = Math.random()*Math.PI*2;
-  const WR=60, WD=80, WJ=0.35;
-  let rotation = Math.random()*360;
-  let baseRotSpeed = 0.333 + Math.random()*0.267;
-  let rotSpeed = baseRotSpeed;
 
-  // Mouse tracking
-  let mouseX = -999, mouseY = -999;
+  // Position
+  let x = 300 + Math.random() * 200;
+  let y = 200 + Math.random() * 150;
+  let vx = 0, vy = 0;
+  let rotation = Math.random() * 360;
+
+  // Mouse
+  let mouseX = -9999, mouseY = -9999;
   let mousePresent = false;
-  const SENSE_RADIUS = 99999;
+  window.addEventListener("mousemove", e => { mouseX = e.clientX; mouseY = e.clientY; mousePresent = true; });
+  document.addEventListener("mouseleave", e => { if (e.relatedTarget === null) mousePresent = false; });
 
-  window.addEventListener("mousemove", e => { mouseX=e.clientX; mouseY=e.clientY; mousePresent=true; });
-  window.addEventListener("mouseleave", () => { mousePresent=false; });
+  // ── Puppy state machine ──
+  // States: ROAM, SNIFF, BUMP_RECOVER, CIRCLE
+  let state      = "ROAM";
+  let stateTimer = 0;           // frames remaining in current state
 
-  function steer(tx,ty,force,dt){
-    const dx=tx-(x+R),dy=ty-(y+R),len=Math.sqrt(dx*dx+dy*dy)||1;
-    const f=force||0.06;
-    vx+=((dx/len*speed)-vx)*f*(dt||1); vy+=((dy/len*speed)-vy)*f*(dt||1);
-    const spd=Math.sqrt(vx*vx+vy*vy);
-    if(spd>speed){vx=vx/spd*speed;vy=vy/spd*speed;}
+  // ROAM: wander toward a randomly chosen target
+  let roamTarget = { x: 400, y: 300 };
+  let roamPause  = 0;           // pause between roam legs (sniffing a spot)
+
+  // SNIFF: nose-down wiggle on the spot
+  let sniffWiggle = 0;
+
+  // BUMP_RECOVER: bounce off obstacle
+  let bumpTimer = 0;
+
+  // CIRCLE: orbit the mouse
+  let orbitAngle  = 0;          // current angle around mouse
+  let orbitRadius = 85;         // target orbit distance
+  let orbitDir    = 1;          // 1 = clockwise, -1 = counter
+
+  // Tuning
+  const ROAM_SPEED    = 1.8;    // px/frame at 60fps base
+  const CIRCLE_SPEED  = 0.032;  // orbit angle increment per frame
+  const ROT_SPEED     = 0.4;
+
+  // Pick a new roam destination anywhere on screen
+  function newRoamTarget() {
+    const W = window.innerWidth, H = window.innerHeight;
+    roamTarget = {
+      x: 60 + Math.random() * (W - 140),
+      y: 60 + Math.random() * (H - 140)
+    };
   }
-  function getRect(el,pad){const r=el.getBoundingClientRect();return{left:r.left-pad,right:r.right+pad,top:r.top-pad,bottom:r.bottom+pad};}
-  function bounceRect(rect){
-    const lx=x+R,ly=y+R;
-    const inX=lx+R>rect.left&&lx-R<rect.right;
-    const inY=ly+R>rect.top&&ly-R<rect.bottom;
-    if(inX&&inY){
-      const oL=(lx+R)-rect.left,oR=rect.right-(lx-R),oT=(ly+R)-rect.top,oB=rect.bottom-(ly-R);
-      if(Math.min(oL,oR)<Math.min(oT,oB)){vx=-vx;x=oL<oR?rect.left-SIZE:rect.right;}
-      else{vy=-vy;y=oT<oB?rect.top-SIZE:rect.bottom;}
+  newRoamTarget();
+
+  function getRect(el, pad) {
+    const r = el.getBoundingClientRect();
+    return { left: r.left-pad, right: r.right+pad, top: r.top-pad, bottom: r.bottom+pad };
+  }
+
+  function overlapsRect(rect) {
+    const lx = x+R, ly = y+R;
+    return lx+R > rect.left && lx-R < rect.right &&
+           ly+R > rect.top  && ly-R < rect.bottom;
+  }
+
+  function resolveRects() {
+    const rects = onResume ? [] : [getRect(topLeft, 14), getRect(cardsArea, 10)];
+    for (const rect of rects) {
+      if (!overlapsRect(rect)) continue;
+      const lx = x+R, ly = y+R;
+      const oL = (lx+R)-rect.left, oR = rect.right-(lx-R);
+      const oT = (ly+R)-rect.top,  oB = rect.bottom-(ly-R);
+      if (Math.min(oL,oR) < Math.min(oT,oB)) {
+        vx = -vx * 0.7;
+        x  = oL < oR ? rect.left - SIZE : rect.right;
+      } else {
+        vy = -vy * 0.7;
+        y  = oT < oB ? rect.top - SIZE : rect.bottom;
+      }
+      return true; // bumped
     }
+    return false;
   }
 
   let lastTime = null;
-  function tick(timestamp){
-    const dt = lastTime ? Math.min((timestamp - lastTime) / 16.67, 2.5) : 1;
-    lastTime = timestamp;
-    const W=window.innerWidth,H=window.innerHeight;
-    const cx=x+R, cy=y+R;
-    const dMouse = mousePresent ? Math.sqrt((cx-mouseX)*(cx-mouseX)+(cy-mouseY)*(cy-mouseY)) : 9999;
-    const attracted = mousePresent && dMouse < SENSE_RADIUS;
 
-    const M=80,F=0.25;
+  function tick(ts) {
+    const dt = lastTime ? Math.min((ts - lastTime) / 16.67, 2.5) : 1;
+    lastTime = ts;
 
-    // Always wander — mouse just biases the wander target when nearby
-    speed = BASE_SPEED;
-    rotSpeed = baseRotSpeed;
+    const W = window.innerWidth, H = window.innerHeight;
+    const cx = x + R, cy = y + R;
+    const dMouse = Math.sqrt((cx-mouseX)**2 + (cy-mouseY)**2);
 
-    if(attracted){
-      // Puppy behaviour: wander target drifts toward a point orbiting the mouse.
-      // No hard pull — the logo just naturally meanders in that direction.
-      const ORBIT_R = 70;
-      const dx = cx - mouseX, dy = cy - mouseY;
-      const ang = Math.atan2(dy, dx);
-
-      // Orbit point: on the circle around mouse, in the direction logo already is
-      const orbitX = mouseX + Math.cos(ang) * ORBIT_R;
-      const orbitY = mouseY + Math.sin(ang) * ORBIT_R;
-
-      // Blend wander target toward orbit point softly
-      wanderAngle += (Math.random()-0.5)*WJ*2;
-      const heading = Math.atan2(vy, vx);
-      const wcx = (x+R) + Math.cos(heading)*WD;
-      const wcy = (y+R) + Math.sin(heading)*WD;
-
-      // Softly interpolate wander circle centre toward orbit point
-      const blendedX = wcx * 0.6 + orbitX * 0.4;
-      const blendedY = wcy * 0.6 + orbitY * 0.4;
-      steer(blendedX + Math.cos(wanderAngle)*WR,
-            blendedY + Math.sin(wanderAngle)*WR, 0.06, dt);
-
-      // Gentle tangential nudge so it actually circles
-      vx += -Math.sin(ang) * 0.12 * dt;
-      vy +=  Math.cos(ang) * 0.12 * dt;
-
-    } else {
-      // Pure wander when mouse is away
-      wanderAngle += (Math.random()-0.5)*WJ*2;
-      const heading = Math.atan2(vy, vx);
-      const wcx = (x+R) + Math.cos(heading)*WD;
-      const wcy = (y+R) + Math.sin(heading)*WD;
-      steer(wcx + Math.cos(wanderAngle)*WR,
-            wcy + Math.sin(wanderAngle)*WR, 0.06, dt);
+    // ── State transitions ──
+    if (mousePresent && state !== "CIRCLE") {
+      // Mouse appeared — switch to circling
+      state = "CIRCLE";
+      // Approach from whatever angle we're already at
+      orbitAngle = Math.atan2(cy - mouseY, cx - mouseX);
+      orbitDir   = Math.random() < 0.5 ? 1 : -1;
+    } else if (!mousePresent && state === "CIRCLE") {
+      // Mouse left — go back to roaming
+      state = "ROAM";
+      newRoamTarget();
     }
 
-    if(x<M)vx+=F*(1-x/M)*dt; if(x>W-SIZE-M)vx-=F*(1-(W-SIZE-x)/M)*dt;
-    if(y<M)vy+=F*(1-y/M)*dt; if(y>H-SIZE-M)vy-=F*(1-(H-SIZE-y)/M)*dt;
+    // ── State behaviour ──
+    if (state === "ROAM") {
+      stateTimer = Math.max(0, stateTimer - dt);
 
-    x+=vx*dt; y+=vy*dt;
-    if(x<=0){x=0;vx=Math.abs(vx);} if(x>=W-SIZE){x=W-SIZE;vx=-Math.abs(vx);}
-    if(y<=0){y=0;vy=Math.abs(vy);} if(y>=H-SIZE){y=H-SIZE;vy=-Math.abs(vy);}
-    if(!onResume){
-      bounceRect(getRect(topLeft,12));
-      bounceRect(getRect(cardsArea,8));
+      if (roamPause > 0) {
+        // Paused — simulate sniffing: tiny random wiggles
+        roamPause -= dt;
+        sniffWiggle += 0.18 * dt;
+        vx += Math.sin(sniffWiggle * 2.3) * 0.08 * dt;
+        vy += Math.cos(sniffWiggle * 1.7) * 0.08 * dt;
+        vx *= 0.85; vy *= 0.85;
+        rotation += (Math.sin(sniffWiggle) * 1.2) * dt;
+      } else {
+        // Walking toward roam target
+        const dx = roamTarget.x - cx;
+        const dy = roamTarget.y - cy;
+        const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+
+        if (dist < 30) {
+          // Arrived — pause and sniff for a bit
+          roamPause = 40 + Math.random() * 80;
+          newRoamTarget();
+        } else {
+          // Steer toward target with gentle wander wobble
+          const desired_vx = (dx / dist) * ROAM_SPEED;
+          const desired_vy = (dy / dist) * ROAM_SPEED;
+          vx += (desired_vx - vx) * 0.04 * dt;
+          vy += (desired_vy - vy) * 0.04 * dt;
+
+          // Occasional random direction change (sniff distraction)
+          if (Math.random() < 0.005) {
+            newRoamTarget();
+            roamPause = 15 + Math.random() * 25;
+          }
+
+          // Rotate to face direction of travel
+          const targetRot = Math.atan2(vy, vx) * (180/Math.PI) + 90;
+          const rotDiff = ((targetRot - rotation + 540) % 360) - 180;
+          rotation += rotDiff * 0.06 * dt;
+        }
+      }
+
+    } else if (state === "CIRCLE") {
+      // Orbit the mouse like a curious puppy
+      orbitAngle += CIRCLE_SPEED * orbitDir * dt;
+
+      // Desired position: on orbit circle around mouse
+      const tx = mouseX + Math.cos(orbitAngle) * orbitRadius;
+      const ty = mouseY + Math.sin(orbitAngle) * orbitRadius;
+
+      const dx = tx - cx, dy = ty - cy;
+      const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+
+      // Soft steering — not snappy, drifts toward the orbit point
+      vx += (dx / dist * ROAM_SPEED - vx) * 0.07 * dt;
+      vy += (dy / dist * ROAM_SPEED - vy) * 0.07 * dt;
+
+      // Occasionally vary orbit radius slightly — curious sniffing feel
+      orbitRadius += (Math.sin(ts * 0.001) * 0.3) * dt;
+      orbitRadius = Math.max(70, Math.min(110, orbitRadius));
+
+      // Face the direction of travel
+      const targetRot = Math.atan2(vy, vx) * (180/Math.PI) + 90;
+      const rotDiff = ((targetRot - rotation + 540) % 360) - 180;
+      rotation += rotDiff * 0.08 * dt;
     }
-    rotation+=rotSpeed*dt;
-    logo.style.left=x+"px"; logo.style.top=y+"px";
-    logo.style.transform="rotate("+rotation+"deg)";
+
+    // ── Move ──
+    x += vx * dt;
+    y += vy * dt;
+
+    // ── Wall bounce ──
+    if (x <= 0)        { x = 0;        vx = Math.abs(vx) * 0.6; newRoamTarget(); }
+    if (x >= W - SIZE) { x = W - SIZE; vx = -Math.abs(vx) * 0.6; newRoamTarget(); }
+    if (y <= 0)        { y = 0;        vy = Math.abs(vy) * 0.6; newRoamTarget(); }
+    if (y >= H - SIZE) { y = H - SIZE; vy = -Math.abs(vy) * 0.6; newRoamTarget(); }
+
+    // ── Obstacle bounce ──
+    resolveRects();
+
+    logo.style.left      = x + "px";
+    logo.style.top       = y + "px";
+    logo.style.transform = "rotate(" + rotation + "deg)";
+
     requestAnimationFrame(tick);
   }
-  logo.style.left=x+"px"; logo.style.top=y+"px";
+
+  logo.style.left = x + "px";
+  logo.style.top  = y + "px";
   requestAnimationFrame(tick);
-  window.addEventListener("resize",()=>{x=Math.min(x,window.innerWidth-SIZE);y=Math.min(y,window.innerHeight-SIZE);});
+
+  window.addEventListener("resize", () => {
+    x = Math.min(x, window.innerWidth  - SIZE);
+    y = Math.min(y, window.innerHeight - SIZE);
+  });
 </script>
 </body>
 </html>
