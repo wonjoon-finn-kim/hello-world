@@ -366,7 +366,7 @@
   const cardsArea= document.getElementById("cards-area");
   const SIZE = 80, R = SIZE / 2;
   let x = 260 + Math.random()*200, y = 120 + Math.random()*100;
-  const BASE_SPEED = 1.867;
+  const BASE_SPEED = 6.6;
   let speed = BASE_SPEED;
   let vx = (Math.random()-0.5)*speed*2;
   let vy = (Math.random()-0.5)*speed*2;
@@ -379,15 +379,15 @@
   // Mouse tracking
   let mouseX = -999, mouseY = -999;
   let mousePresent = false;
-  const SENSE_RADIUS = 440;
+  const SENSE_RADIUS = 99999;
 
   window.addEventListener("mousemove", e => { mouseX=e.clientX; mouseY=e.clientY; mousePresent=true; });
   window.addEventListener("mouseleave", () => { mousePresent=false; });
 
-  function steer(tx,ty,force){
+  function steer(tx,ty,force,dt){
     const dx=tx-(x+R),dy=ty-(y+R),len=Math.sqrt(dx*dx+dy*dy)||1;
     const f=force||0.06;
-    vx+=((dx/len*speed)-vx)*f; vy+=((dy/len*speed)-vy)*f;
+    vx+=((dx/len*speed)-vx)*f*(dt||1); vy+=((dy/len*speed)-vy)*f*(dt||1);
     const spd=Math.sqrt(vx*vx+vy*vy);
     if(spd>speed){vx=vx/spd*speed;vy=vy/spd*speed;}
   }
@@ -403,7 +403,10 @@
     }
   }
 
-  function tick(){
+  let lastTime = null;
+  function tick(timestamp){
+    const dt = lastTime ? Math.min((timestamp - lastTime) / 16.67, 2.5) : 1;
+    lastTime = timestamp;
     const W=window.innerWidth,H=window.innerHeight;
     const cx=x+R, cy=y+R;
     const dMouse = mousePresent ? Math.sqrt((cx-mouseX)*(cx-mouseX)+(cy-mouseY)*(cy-mouseY)) : 9999;
@@ -436,11 +439,11 @@
       const blendedX = wcx * 0.6 + orbitX * 0.4;
       const blendedY = wcy * 0.6 + orbitY * 0.4;
       steer(blendedX + Math.cos(wanderAngle)*WR,
-            blendedY + Math.sin(wanderAngle)*WR, 0.06);
+            blendedY + Math.sin(wanderAngle)*WR, 0.06, dt);
 
       // Gentle tangential nudge so it actually circles
-      vx += -Math.sin(ang) * 0.12;
-      vy +=  Math.cos(ang) * 0.12;
+      vx += -Math.sin(ang) * 0.12 * dt;
+      vy +=  Math.cos(ang) * 0.12 * dt;
 
     } else {
       // Pure wander when mouse is away
@@ -449,20 +452,20 @@
       const wcx = (x+R) + Math.cos(heading)*WD;
       const wcy = (y+R) + Math.sin(heading)*WD;
       steer(wcx + Math.cos(wanderAngle)*WR,
-            wcy + Math.sin(wanderAngle)*WR, 0.06);
+            wcy + Math.sin(wanderAngle)*WR, 0.06, dt);
     }
 
-    if(x<M)vx+=F*(1-x/M); if(x>W-SIZE-M)vx-=F*(1-(W-SIZE-x)/M);
-    if(y<M)vy+=F*(1-y/M); if(y>H-SIZE-M)vy-=F*(1-(H-SIZE-y)/M);
+    if(x<M)vx+=F*(1-x/M)*dt; if(x>W-SIZE-M)vx-=F*(1-(W-SIZE-x)/M)*dt;
+    if(y<M)vy+=F*(1-y/M)*dt; if(y>H-SIZE-M)vy-=F*(1-(H-SIZE-y)/M)*dt;
 
-    x+=vx; y+=vy;
+    x+=vx*dt; y+=vy*dt;
     if(x<=0){x=0;vx=Math.abs(vx);} if(x>=W-SIZE){x=W-SIZE;vx=-Math.abs(vx);}
     if(y<=0){y=0;vy=Math.abs(vy);} if(y>=H-SIZE){y=H-SIZE;vy=-Math.abs(vy);}
     if(!onResume){
       bounceRect(getRect(topLeft,12));
       bounceRect(getRect(cardsArea,8));
     }
-    rotation+=rotSpeed;
+    rotation+=rotSpeed*dt;
     logo.style.left=x+"px"; logo.style.top=y+"px";
     logo.style.transform="rotate("+rotation+"deg)";
     requestAnimationFrame(tick);
