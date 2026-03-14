@@ -399,8 +399,8 @@
   let orbitDir    = 1;          // 1 = clockwise, -1 = counter
 
   // Tuning
-  const ROAM_SPEED    = 1.8;    // px/frame at 60fps base
-  const CIRCLE_SPEED  = 0.032;  // orbit angle increment per frame
+  const ROAM_SPEED    = 3.2;    // px/frame at 60fps base
+  const CIRCLE_SPEED  = 0.048;  // orbit angle increment per frame
   const ROT_SPEED     = 0.4;
 
   // Pick a new roam destination anywhere on screen
@@ -474,8 +474,8 @@
         // Paused — simulate sniffing: tiny random wiggles
         roamPause -= dt;
         sniffWiggle += 0.18 * dt;
-        vx += Math.sin(sniffWiggle * 2.3) * 0.08 * dt;
-        vy += Math.cos(sniffWiggle * 1.7) * 0.08 * dt;
+        vx += Math.sin(sniffWiggle * 2.3) * 0.18 * dt;
+        vy += Math.cos(sniffWiggle * 1.7) * 0.18 * dt;
         vx *= 0.85; vy *= 0.85;
         rotation += (Math.sin(sniffWiggle) * 1.2) * dt;
       } else {
@@ -486,25 +486,27 @@
 
         if (dist < 30) {
           // Arrived — pause and sniff for a bit
-          roamPause = 40 + Math.random() * 80;
+          roamPause = 15 + Math.random() * 30;
           newRoamTarget();
         } else {
           // Steer toward target with gentle wander wobble
           const desired_vx = (dx / dist) * ROAM_SPEED;
           const desired_vy = (dy / dist) * ROAM_SPEED;
-          vx += (desired_vx - vx) * 0.04 * dt;
-          vy += (desired_vy - vy) * 0.04 * dt;
+          vx += (desired_vx - vx) * 0.07 * dt;
+          vy += (desired_vy - vy) * 0.07 * dt;
 
           // Occasional random direction change (sniff distraction)
-          if (Math.random() < 0.005) {
+          if (Math.random() < 0.003) {
             newRoamTarget();
-            roamPause = 15 + Math.random() * 25;
+            roamPause = 8 + Math.random() * 12;
           }
 
           // Rotate to face direction of travel
-          const targetRot = Math.atan2(vy, vx) * (180/Math.PI) + 90;
-          const rotDiff = ((targetRot - rotation + 540) % 360) - 180;
-          rotation += rotDiff * 0.06 * dt;
+          const targetRot1 = Math.atan2(vy, vx) * (180/Math.PI) + 90;
+          let rotDiff1 = targetRot1 - (rotation % 360);
+          if (rotDiff1 > 180) rotDiff1 -= 360;
+          if (rotDiff1 < -180) rotDiff1 += 360;
+          rotation += rotDiff1 * 0.06 * dt;
         }
       }
 
@@ -520,17 +522,19 @@
       const dist = Math.sqrt(dx*dx + dy*dy) || 1;
 
       // Soft steering — not snappy, drifts toward the orbit point
-      vx += (dx / dist * ROAM_SPEED - vx) * 0.07 * dt;
-      vy += (dy / dist * ROAM_SPEED - vy) * 0.07 * dt;
+      vx += (dx / dist * ROAM_SPEED - vx) * 0.10 * dt;
+      vy += (dy / dist * ROAM_SPEED - vy) * 0.10 * dt;
 
       // Occasionally vary orbit radius slightly — curious sniffing feel
       orbitRadius += (Math.sin(ts * 0.001) * 0.3) * dt;
       orbitRadius = Math.max(70, Math.min(110, orbitRadius));
 
       // Face the direction of travel
-      const targetRot = Math.atan2(vy, vx) * (180/Math.PI) + 90;
-      const rotDiff = ((targetRot - rotation + 540) % 360) - 180;
-      rotation += rotDiff * 0.08 * dt;
+      const targetRot2 = Math.atan2(vy, vx) * (180/Math.PI) + 90;
+      let rotDiff2 = targetRot2 - (rotation % 360);
+      if (rotDiff2 > 180) rotDiff2 -= 360;
+      if (rotDiff2 < -180) rotDiff2 += 360;
+      rotation += rotDiff2 * 0.08 * dt;
     }
 
     // ── Move ──
