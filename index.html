@@ -378,6 +378,18 @@
   window.addEventListener("mousemove", e => { mouseX = e.clientX; mouseY = e.clientY; mousePresent = true; });
   document.addEventListener("mouseleave", e => { if (e.relatedTarget === null) mousePresent = false; });
 
+  // Touch support for mobile Safari
+  window.addEventListener("touchmove", e => {
+    const t = e.touches[0];
+    mouseX = t.clientX; mouseY = t.clientY; mousePresent = true;
+    e.preventDefault();
+  }, { passive: false });
+  window.addEventListener("touchstart", e => {
+    const t = e.touches[0];
+    mouseX = t.clientX; mouseY = t.clientY; mousePresent = true;
+  });
+  window.addEventListener("touchend", () => { mousePresent = false; });
+
   // ── Puppy state machine ──
   // States: ROAM, SNIFF, BUMP_RECOVER, CIRCLE
   let state      = "ROAM";
@@ -444,10 +456,15 @@
   }
 
   let lastTime = null;
+  let fpsBuffer = [];
 
   function tick(ts) {
-    const dt = lastTime ? Math.min((ts - lastTime) / 16.67, 2.5) : 1;
+    const raw = lastTime ? ts - lastTime : 16.67;
     lastTime = ts;
+    fpsBuffer.push(raw);
+    if (fpsBuffer.length > 6) fpsBuffer.shift();
+    const avg = fpsBuffer.reduce((a,b) => a+b, 0) / fpsBuffer.length;
+    const dt = Math.min(Math.max(avg / 16.67, 0.5), 2.0);
 
     const W = window.innerWidth, H = window.innerHeight;
     const cx = x + R, cy = y + R;
