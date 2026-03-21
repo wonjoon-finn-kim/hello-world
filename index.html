@@ -81,6 +81,24 @@
   }
   .proj-card:hover { border-color:#BEB9AE; background:#E8E5DC; }
   .proj-card:hover::after { transform:scaleX(1); }
+
+  /* Active (filled) card */
+  .proj-card.active { border-color:var(--accent); background:#F0EBE4; }
+  .proj-card.active::after { transform:scaleX(1); }
+  .proj-card.active .proj-num { color:var(--accent); }
+  .proj-card.active .proj-tag { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .proj-card.active .proj-arrow {
+    position:absolute; top:16px; right:14px;
+    width:14px; height:14px; color:var(--accent); opacity:0.7;
+    transition:opacity 0.2s, transform 0.2s;
+  }
+  .proj-card.active:hover .proj-arrow { opacity:1; transform:translate(2px,-2px); }
+
+  /* Empty cards */
+  .proj-card.empty { opacity:0.5; cursor:default; }
+  .proj-card.empty:hover { border-color:var(--border); background:var(--parchment); }
+  .proj-card.empty::after { display:none; }
+
   .proj-num { font-family:"DM Mono",monospace; font-size:9px; letter-spacing:0.18em; color:var(--hint); text-transform:uppercase; margin-bottom:8px; }
   .proj-title { font-size:0.95rem; font-weight:500; color:var(--ink); letter-spacing:-0.01em; margin-bottom:6px; }
   .proj-desc { font-size:0.78rem; color:var(--hint); font-style:italic; line-height:1.5; flex:1; }
@@ -181,15 +199,16 @@
   <div id="cards-area">
     <div id="cards-label">Projects</div>
     <div id="cards-grid">
-      <div class="proj-card" onclick="window.open('unmanned.html','_blank')" style="cursor:pointer;">
+      <div class="proj-card active" onclick="window.open('unmanned.html','_blank')" style="cursor:pointer;">
+        <svg class="proj-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
         <div><div class="proj-num">Project 001</div><div class="proj-title">UNMANNED</div><div class="proj-desc">Vertical assault arcade shooter — dodge, upgrade, and survive waves of hostile drones.</div></div>
         <span class="proj-tag">game</span>
       </div>
-      <div class="proj-card">
+      <div class="proj-card empty">
         <div><div class="proj-num">Project 002</div><div class="proj-title">Coming soon</div><div class="proj-desc">This project is in the works.</div></div>
         <span class="proj-tag">— empty —</span>
       </div>
-      <div class="proj-card">
+      <div class="proj-card empty">
         <div><div class="proj-num">Project 003</div><div class="proj-title">Coming soon</div><div class="proj-desc">This project is in the works.</div></div>
         <span class="proj-tag">— empty —</span>
       </div>
@@ -586,4 +605,9 @@
     requestAnimationFrame(tick);
   }
 
-  logo.style.lef
+  logo.style.left = x + "px";
+  logo.style.top  = y + "px";
+  requestAnimationFrame(tick);
+</script>
+</body>
+</html>
